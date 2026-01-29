@@ -29,18 +29,16 @@ use eyre::{bail, Result};
 use utils::cstr_to_string;
 
 pub fn get_default_provider() -> String {
-    "cpu".into()
-    // Other providers has many issues with different models!!
-    // if cfg!(feature = "cuda") {
-    //     "cuda"
-    // } else if cfg!(target_os = "macos") {
-    //     "coreml"
-    // } else if cfg!(feature = "directml") {
-    //     "directml"
-    // } else {
-    //     "cpu"
-    // }
-    // .into()
+    if cfg!(feature = "cuda") {
+        "cuda"
+    } else if cfg!(target_os = "macos") {
+        "coreml"
+    } else if cfg!(feature = "directml") {
+        "directml"
+    } else {
+        "cpu"
+    }
+    .into()
 }
 
 pub fn read_audio_file(path: &str) -> Result<(Vec<f32>, u32)> {
