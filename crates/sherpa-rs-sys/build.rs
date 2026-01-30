@@ -312,14 +312,8 @@ fn main() {
         delete_folder(&sherpa_src.join("scripts")).unwrap();
         copy_folder(&sherpa_src, &sherpa_dst);
     }
-    // Speed up build
-    env::set_var(
-        "CMAKE_BUILD_PARALLEL_LEVEL",
-        std::thread::available_parallelism()
-            .unwrap()
-            .get()
-            .to_string(),
-    );
+    // Limit build parallelism to avoid overloading system
+    env::set_var("CMAKE_BUILD_PARALLEL_LEVEL", "2");
 
     // Bindings
     if env::var("SHERPA_SKIP_GENERATE_BINDINGS").is_ok() {

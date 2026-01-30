@@ -14,20 +14,36 @@ use sherpa_rs::{
 
 fn main() {
     let path = std::env::args().nth(1).expect("Missing file path argument");
-    let provider = std::env::args().nth(2).unwrap_or(get_default_provider());
+    // Use CUDA provider by default, but allow override from command line
+    let default_provider = if cfg!(feature = "cuda") { "cuda".to_string() } else { get_default_provider() };
+    let provider = std::env::args().nth(2).unwrap_or(default_provider);
     let (samples, sample_rate) = read_audio_file(&path).unwrap();
     assert_eq!(sample_rate, 16000, "The sample rate must be 16000.");
 
+    println!("Using provider: {}", provider);
+
     let config = SenseVoiceConfig {
-        model: "/Users/trevorlink/Project/tiebao/NoteCapture/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.int8.onnx".into(),
-        tokens: "/Users/trevorlink/Project/tiebao/NoteCapture/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/tokens.txt".into(),
+        model: "./sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.int8.onnx".into(),
+        tokens: "./sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/tokens.txt".into(),
         provider: Some(provider),
+        debug: true, // Enable debug mode
 
         ..Default::default()
     };
 
-    let mut recognizer: SenseVoiceRecognizer = SenseVoiceRecognizer::new(config).unwrap();
+    println!("Creating recognizer with config...");
+    let mut recognizer: SenseVoiceRecognizer = match SenseVoiceRecognizer::new(config) {
+        Ok(rec) => {
+            println!("Recognizer created successfully!");
+            rec
+        },
+        Err(e) => {
+            eprintln!("Failed to create recognizer: {:?}", e);
+            std::process::exit(1);
+        }
+    };
 
+    println!("Starting transcription...");
     let start_t = std::time::Instant::now();
     let result = recognizer.transcribe(sample_rate, &samples);
     let elapsed = start_t.elapsed();

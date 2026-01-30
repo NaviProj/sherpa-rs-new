@@ -24,6 +24,11 @@ hound = { version = "3.5.1" }
 sherpa-rs-sys = { path = "../sherpa-rs-sys", version = "0.6.8", default-features = false }
 tracing = "0.1.40"
 
+[[bin]]
+name = "debug_cuda"
+path = "../../debug_cuda.rs"
+required-features = ["cuda"]
+
 [dev-dependencies]
 clap = { version = "4.5.8", features = ["derive"] }
 
@@ -139,3 +144,5 @@ path = "../../examples/dolphin.rs"
 [[example]]
 name = "parakeet"
 path = "../../examples/parakeet.rs"
+
+
