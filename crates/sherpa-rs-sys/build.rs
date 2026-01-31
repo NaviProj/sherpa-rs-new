@@ -307,13 +307,17 @@ fn main() {
     debug_log!("OUT_DIR: {}", out_dir.display());
 
     // Prepare sherpa-onnx source
-    if !sherpa_dst.exists() {
-        debug_log!("Copy {} to {}", sherpa_src.display(), sherpa_dst.display());
-        delete_folder(&sherpa_src.join("scripts")).unwrap();
-        copy_folder(&sherpa_src, &sherpa_dst);
-    }
+    // Always refresh to keep bindings in sync with the header.
+    debug_log!("Copy {} to {}", sherpa_src.display(), sherpa_dst.display());
+    delete_folder(&sherpa_dst).unwrap();
+    delete_folder(&sherpa_src.join("scripts")).unwrap();
+    copy_folder(&sherpa_src, &sherpa_dst);
     // Limit build parallelism to avoid overloading system
-    env::set_var("CMAKE_BUILD_PARALLEL_LEVEL", "2");
+    env::set_var("CMAKE_BUILD_PARALLEL_LEVEL", 
+            std::thread::available_parallelism()
+            .unwrap()
+            .get()
+            .to_string());
 
     // Bindings
     if env::var("SHERPA_SKIP_GENERATE_BINDINGS").is_ok() {
