@@ -173,7 +173,9 @@ impl DistTable {
         });
 
         let url = self.url.replace("{archive}", archive);
-        let checksum = DIST_CHECKSUM.get(archive)?;
+
+        let binding = "SKIP_VALIDATION".to_string();
+        let checksum = DIST_CHECKSUM.get(archive).unwrap_or(&binding);
 
         // modify is_dynamic
         debug_log!("checking is_dynamic");

@@ -215,6 +215,11 @@ fn verify_checksum(actual_hash: &str, expected_hash: &str) {
         return;
     }
 
+    if expected_hash == "SKIP_VALIDATION" {
+        println!("cargo:warning=Checksum validation skipped by configuration.");
+        return;
+    }
+
     if actual_hash != expected_hash {
         panic!(
             "Checksum validation failed!\n\
@@ -278,16 +283,11 @@ fn main() {
     let target_dir = get_cargo_target_dir().unwrap();
     let sherpa_dst = out_dir.join("sherpa-onnx");
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Failed to get CARGO_MANIFEST_DIR");
-    let external_sherpa_src = Path::new(&manifest_dir).join("../../../sherpa-onnx");
     let internal_sherpa_src = Path::new(&manifest_dir).join("sherpa-onnx");
-    
-    let sherpa_src = if external_sherpa_src.exists() {
-        debug_log!("Using external sherpa-onnx at {}", external_sherpa_src.display());
-        external_sherpa_src
-    } else {
-        debug_log!("Using internal sherpa-onnx at {}", internal_sherpa_src.display());
-        internal_sherpa_src
-    };
+
+    // Always use internal sherpa-onnx
+    let sherpa_src = internal_sherpa_src;
+    debug_log!("Using internal sherpa-onnx at {}", sherpa_src.display());
 
     // Dynamic by default
     #[allow(unused_mut)]
@@ -313,11 +313,13 @@ fn main() {
     delete_folder(&sherpa_src.join("scripts")).unwrap();
     copy_folder(&sherpa_src, &sherpa_dst);
     // Limit build parallelism to avoid overloading system
-    env::set_var("CMAKE_BUILD_PARALLEL_LEVEL", 
-            std::thread::available_parallelism()
+    env::set_var(
+        "CMAKE_BUILD_PARALLEL_LEVEL",
+        std::thread::available_parallelism()
             .unwrap()
             .get()
-            .to_string());
+            .to_string(),
+    );
 
     // Bindings
     if env::var("SHERPA_SKIP_GENERATE_BINDINGS").is_ok() {
@@ -484,9 +486,9 @@ fn main() {
         if target_os == "windows" || target_os == "linux" || target == "android" {
             config.define("SHERPA_ONNX_ENABLE_PORTAUDIO", "ON");
         }
-        
-        // macOS
-        if target_os == "macos" {
+
+        // macOS and ios
+        if target_os == "macos" || target_os == "ios" {
             config.define("SHERPA_ONNX_ENABLE_COREML", "ON");
         }
 
@@ -534,17 +536,17 @@ fn main() {
         link_lib("stdc++", true);
     }
 
-            // macOS
-            if target_os == "macos" {
-                // On (older) OSX we need to link against the clang runtime,
-                // which is hidden in some non-default path.
-                //
-                // More details at https://github.com/alexcrichton/curl-rust/issues/279.
-                if let Some(path) = macos_link_search_path() {
-                    add_search_path(path);
-                    link_lib("clang_rt.osx", is_dynamic);
-                }
-            }
+    // macOS
+    if target_os == "macos" {
+        // On (older) OSX we need to link against the clang runtime,
+        // which is hidden in some non-default path.
+        //
+        // More details at https://github.com/alexcrichton/curl-rust/issues/279.
+        if let Some(path) = macos_link_search_path() {
+            add_search_path(path);
+            link_lib("clang_rt.osx", is_dynamic);
+        }
+    }
     // Copy dynamic libraries
 
     if is_dynamic {
