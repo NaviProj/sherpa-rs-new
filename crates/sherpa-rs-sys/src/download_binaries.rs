@@ -91,6 +91,16 @@ impl DistTable {
                 let archive_value = archive_value.as_str().unwrap();
                 value["archive"] = Value::String(archive_value.replace("{tag}", &table.tag));
             }
+            // expand cuda with {tag}
+            if let Some(cuda_value) = value.get("cuda") {
+                let cuda_value = cuda_value.as_str().unwrap();
+                value["cuda"] = Value::String(cuda_value.replace("{tag}", &table.tag));
+            }
+            // expand directml with {tag}
+            if let Some(directml_value) = value.get("directml") {
+                let directml_value = directml_value.as_str().unwrap();
+                value["directml"] = Value::String(directml_value.replace("{tag}", &table.tag));
+            }
         }
         table
     }
