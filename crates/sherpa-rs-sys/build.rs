@@ -369,68 +369,98 @@ fn main() {
 
     #[cfg(feature = "download-binaries")]
     {
-        // Download libraries, cache and set SHERPA_LIB_PATH
-        use download_binaries::{extract_tbz, fetch_file, get_cache_dir, sha256, DIST_TABLE};
-        debug_log!("Download binaries enabled");
-        // debug_log!("Dist table: {:?}", DIST_TABLE.targets);
-        // Try download sherpa libs and set SHERPA_LIB_PATH
-        if let Some(dist) = DIST_TABLE.get(&target, &mut is_dynamic) {
-            debug_log!("is_dynamic after: {}", is_dynamic);
-            optional_dist = Some(dist.clone());
-            let mut cache_dir = if let Some(dir) = get_cache_dir() {
-                dir.join(target.clone()).join(&dist.checksum)
-            } else {
-                println!("cargo:warning=Could not determine cache directory, using OUT_DIR");
-                PathBuf::from(env::var("OUT_DIR").unwrap())
-            };
-            if fs::create_dir_all(&cache_dir).is_err() {
-                println!("cargo:warning=Could not create cache directory, using OUT_DIR");
-                cache_dir = env::var("OUT_DIR").unwrap().into();
-            }
-            debug_log!("Cache dir: {}", cache_dir.display());
+        #[allow(unused_mut)]
+        let mut should_download = true;
 
-            let lib_dir = cache_dir.join(&dist.name);
+        #[cfg(feature = "build-own")]
+        {
+            println!("cargo:warning=build-own feature enabled. Falling back to source build instead of downloading prebuilt binaries.");
+            should_download = false;
+        }
 
-            // if is mobile then check if cache dir not empty
-            // Sherpa uses special directory structure for mobile
-            let cache_dir_empty = cache_dir
-                .read_dir()
-                .map(|mut entries| entries.next().is_none())
-                .unwrap_or(true);
+        #[cfg(feature = "cuda")]
+        if should_download && (target_os == "windows" || target_os == "linux") {
+            println!("cargo:warning=Note: The pre-compiled Cuda binaries require CUDA 12.x and cuDNN 9.x.");
+            println!("cargo:warning=If your system does not meet these requirements, please enable the 'build-own' feature to build from source.");
+        }
 
-            if (is_mobile && cache_dir_empty) || (!is_mobile && !lib_dir.exists()) {
-                let downloaded_file = fetch_file(&dist.url);
-                let hash = sha256(&downloaded_file);
-                verify_checksum(&hash, &dist.checksum);
-                extract_tbz(&downloaded_file, &cache_dir);
-            } else {
-                debug_log!("Skip fetch file. Using cache from {}", lib_dir.display());
-            }
+        // DirectML still doesn't have its own prebuilt binary as of 1.12.26, so fallback directly unless supplied
+        #[cfg(feature = "directml")]
+        if target_os == "windows" && should_download {
+            println!("cargo:warning=DirectML feature enabled. Falling back to source build instead of downloading prebuilt binaries.");
+            should_download = false;
+        }
 
-            // In Android, we need to set SHERPA_LIB_PATH to the cache directory sincie it has jniLibs
-            if is_mobile {
-                env::set_var("SHERPA_LIB_PATH", &cache_dir);
-            } else {
-                env::set_var("SHERPA_LIB_PATH", cache_dir.join(&dist.name));
-            }
+        #[cfg(all(feature = "static", feature = "tts"))]
+        if target_os == "windows" && should_download {
+            println!("cargo:warning=Static and TTS features enabled on Windows. Falling back to source build instead of downloading prebuilt binaries.");
+            should_download = false;
+        }
 
-            debug_log!("dist libs: {:?}", dist.libs);
-            if let Some(libs) = dist.libs {
-                for lib in libs.iter() {
-                    let lib_path = cache_dir.join(lib);
-                    let lib_parent = lib_path.parent().unwrap();
-                    add_search_path(lib_parent);
+        if should_download {
+            // Download libraries, cache and set SHERPA_LIB_PATH
+            use download_binaries::{extract_tbz, fetch_file, get_cache_dir, sha256, DIST_TABLE};
+            debug_log!("Download binaries enabled");
+            // debug_log!("Dist table: {:?}", DIST_TABLE.targets);
+            // Try download sherpa libs and set SHERPA_LIB_PATH
+            if let Some(dist) = DIST_TABLE.get(&target, &mut is_dynamic) {
+                debug_log!("is_dynamic after: {}", is_dynamic);
+                optional_dist = Some(dist.clone());
+                let mut cache_dir = if let Some(dir) = get_cache_dir() {
+                    dir.join(target.clone()).join(&dist.checksum)
+                } else {
+                    println!("cargo:warning=Could not determine cache directory, using OUT_DIR");
+                    PathBuf::from(env::var("OUT_DIR").unwrap())
+                };
+                if fs::create_dir_all(&cache_dir).is_err() {
+                    println!("cargo:warning=Could not create cache directory, using OUT_DIR");
+                    cache_dir = env::var("OUT_DIR").unwrap().into();
+                }
+                debug_log!("Cache dir: {}", cache_dir.display());
+
+                let lib_dir = cache_dir.join(&dist.name);
+
+                // if is mobile then check if cache dir not empty
+                // Sherpa uses special directory structure for mobile
+                let cache_dir_empty = cache_dir
+                    .read_dir()
+                    .map(|mut entries| entries.next().is_none())
+                    .unwrap_or(true);
+
+                if (is_mobile && cache_dir_empty) || (!is_mobile && !lib_dir.exists()) {
+                    let downloaded_file = fetch_file(&dist.url);
+                    let hash = sha256(&downloaded_file);
+                    verify_checksum(&hash, &dist.checksum);
+                    extract_tbz(&downloaded_file, &cache_dir);
+                } else {
+                    debug_log!("Skip fetch file. Using cache from {}", lib_dir.display());
                 }
 
-                sherpa_libs = libs
-                    .iter()
-                    .map(download_binaries::extract_lib_name)
-                    .collect();
+                // In Android, we need to set SHERPA_LIB_PATH to the cache directory sincie it has jniLibs
+                if is_mobile {
+                    env::set_var("SHERPA_LIB_PATH", &cache_dir);
+                } else {
+                    env::set_var("SHERPA_LIB_PATH", cache_dir.join(&dist.name));
+                }
+
+                debug_log!("dist libs: {:?}", dist.libs);
+                if let Some(libs) = dist.libs {
+                    for lib in libs.iter() {
+                        let lib_path = cache_dir.join(lib);
+                        let lib_parent = lib_path.parent().unwrap();
+                        add_search_path(lib_parent);
+                    }
+
+                    sherpa_libs = libs
+                        .iter()
+                        .map(download_binaries::extract_lib_name)
+                        .collect();
+                } else {
+                    sherpa_libs = extract_lib_names(&lib_dir, is_dynamic, &target_os);
+                }
             } else {
-                sherpa_libs = extract_lib_names(&lib_dir, is_dynamic, &target_os);
+                println!("cargo:warning=Failed to download binaries. fallback to manual build.");
             }
-        } else {
-            println!("cargo:warning=Failed to download binaries. fallback to manual build.");
         }
     }
 
@@ -487,7 +517,7 @@ fn main() {
             config.define("SHERPA_ONNX_ENABLE_PORTAUDIO", "ON");
         }
 
-        // macOS and ios
+        // macOS and ios src build
         if target_os == "macos" || target_os == "ios" {
             config.define("SHERPA_ONNX_ENABLE_COREML", "ON");
         }

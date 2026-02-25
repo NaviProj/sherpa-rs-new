@@ -6,45 +6,6 @@ use std::{
 use serde::Deserialize;
 use serde_json::Value;
 
-// Prebuilt sherpa-onnx doesn't have Cuda support
-#[cfg(all(
-    any(target_os = "windows", target_os = "linux"),
-    feature = "download-binaries",
-    feature = "cuda"
-))]
-compile_error!(
-    "The 'download-binaries' and 'cuda' features cannot be enabled at the same time.\n\
-    To resolve this, please disable the 'download-binaries' feature when using 'cuda'.\n\
-    For example, in your Cargo.toml:\n\
-    [dependencies]\n\
-    sherpa-rs = { default-features = false, features = [\"cuda\"] }"
-);
-
-// Prebuilt sherpa-onnx doesn't have DirectML support
-#[cfg(all(windows, feature = "download-binaries", feature = "directml"))]
-compile_error!(
-    "The 'download-binaries' and 'directml' features cannot be enabled at the same time.\n\
-    To resolve this, please disable the 'download-binaries' feature when using 'directml'.\n\
-    For example, in your Cargo.toml:\n\
-    [dependencies]\n\
-    sherpa-rs = { default-features = false, features = [\"directml\"] }"
-);
-
-// Prebuilt sherpa-onnx does not include TTS in static builds.
-#[cfg(all(
-    windows,
-    feature = "download-binaries",
-    feature = "static",
-    feature = "tts"
-))]
-compile_error!(
-    "The 'download-binaries', 'static', and 'tts' features cannot be enabled at the same time.\n\
-    To resolve this, please disable the 'tts' feature when using 'static' and 'download-binaries' together.\n\
-    For example, in your Cargo.toml:\n\
-    [dependencies]\n\
-    sherpa-rs = { default-features = false, features = [\"static\", \"tts\"] }"
-);
-
 macro_rules! debug_log {
     ($($arg:tt)*) => {
         // SHERPA_BUILD_DEBUG=1 cargo build
@@ -152,17 +113,35 @@ impl DistTable {
             "raw target_dist: {:?}",
             serde_json::to_string(target_dist).unwrap()
         );
-        let archive = if target_dist.get("archive").is_some() {
-            // archive name
-            // static/dynamic located in 'is_dynamic' field
-            target_dist.get("archive").unwrap().as_str().unwrap()
-        } else if *is_dynamic {
-            // dynamic archive name
-            target_dist.get("dynamic").unwrap().as_str().unwrap()
-        } else {
-            // static archive name
-            target_dist.get("static").unwrap().as_str().unwrap()
-        };
+
+        let mut archive = "";
+
+        // First apply directml and cuda specific archives if present and enabled
+        #[cfg(feature = "cuda")]
+        if target_dist.get("cuda").is_some() {
+            archive = target_dist.get("cuda").unwrap().as_str().unwrap();
+        }
+
+        #[cfg(feature = "directml")]
+        if target_dist.get("directml").is_some() {
+            archive = target_dist.get("directml").unwrap().as_str().unwrap();
+        }
+
+        // Apply normal logic if specific archives were not found or not enabled
+        if archive.is_empty() {
+            if target_dist.get("archive").is_some() {
+                // archive name
+                // static/dynamic located in 'is_dynamic' field
+                archive = target_dist.get("archive").unwrap().as_str().unwrap();
+            } else if *is_dynamic {
+                // dynamic archive name
+                archive = target_dist.get("dynamic").unwrap().as_str().unwrap();
+            } else {
+                // static archive name
+                archive = target_dist.get("static").unwrap().as_str().unwrap();
+            }
+        }
+
         let name = archive.replace(".tar.bz2", "");
         let name = name.replace(".tar.gz", "");
 
