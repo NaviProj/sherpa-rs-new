@@ -64,6 +64,8 @@ impl WhisperRecognizer {
             language: language_ptr.as_ptr(),
             task: task_ptr.as_ptr(),
             tail_paddings,
+            enable_token_timestamps: 0,
+            enable_segment_timestamps: 0,
         };
         let model_config = unsafe {
             sherpa_rs_sys::SherpaOnnxOfflineModelConfig {

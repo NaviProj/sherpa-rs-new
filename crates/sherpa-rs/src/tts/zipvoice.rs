@@ -60,6 +60,7 @@ impl ZipVoiceTts {
                     target_rms: config.target_rms,
                     guidance_scale: config.guidance_scale,
                 },
+                pocket: mem::zeroed::<_>(),
             };
             let config = sherpa_rs_sys::SherpaOnnxOfflineTtsConfig {
                 max_num_sentences: config.common_config.max_num_sentences,
