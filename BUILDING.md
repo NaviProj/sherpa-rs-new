@@ -15,6 +15,11 @@ sudo apt-get install -y pkg-config build-essential clang cmake
 
 For convenience, I recommend installing these packages.
 Additionally, when using wget to run examples, use `wget.exe` instead.
+# 创建短路径目录（若不存在）
+if (!(Test-Path C:\t)) { New-Item -ItemType Directory -Path C:\t }
+
+# 设置环境变量并启动构建
+cargo build --features build-own -vv
 
 ```console
 winget install -e --id GnuWin32.Tar

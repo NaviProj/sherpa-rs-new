@@ -3,9 +3,17 @@
   "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/{tag}/{archive}",
   "targets": {
     "x86_64-pc-windows-msvc": {
-      "static": "sherpa-onnx-{tag}-win-x64-static.tar.bz2",
-      "dynamic": "sherpa-onnx-{tag}-win-x64-shared.tar.bz2",
+      "static": "sherpa-onnx-{tag}-win-x64-static-MD-Release.tar.bz2",
+      "dynamic": "sherpa-onnx-{tag}-win-x64-shared-MD-Release.tar.bz2",
       "cuda": "sherpa-onnx-{tag}-cuda-12.x-cudnn-9.x-win-x64-cuda.tar.bz2"
+    },
+    "i686-pc-windows-msvc": {
+      "static": "sherpa-onnx-{tag}-win-x86-static-MD-Release.tar.bz2",
+      "dynamic": "sherpa-onnx-{tag}-win-x86-shared-MD-Release.tar.bz2"
+    },
+    "aarch64-pc-windows-msvc": {
+      "static": "sherpa-onnx-{tag}-win-arm64-static-MD-Release.tar.bz2",
+      "dynamic": "sherpa-onnx-{tag}-win-arm64-shared-MD-Release.tar.bz2"
     },
     "x86_64-unknown-linux-gnu": {
       "static": "sherpa-onnx-{tag}-linux-x64-static.tar.bz2",
