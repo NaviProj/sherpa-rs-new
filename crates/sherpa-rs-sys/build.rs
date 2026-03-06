@@ -384,10 +384,10 @@ fn main() {
             println!("cargo:warning=If your system does not meet these requirements, please enable the 'build-own' feature to build from source.");
         }
 
-        // DirectML still doesn't have its own prebuilt binary as of 1.12.26, so fallback directly unless supplied
-        #[cfg(feature = "directml")]
-        if target_os == "windows" && should_download {
-            println!("cargo:warning=DirectML feature enabled. Falling back to source build instead of downloading prebuilt binaries.");
+        // DirectML still doesn't have its own prebuilt binary, so fallback to source build on Windows
+        // Auto-enabled on Windows (like CoreML on macOS), or when explicitly requested via feature
+        if (cfg!(feature = "directml") || target_os == "windows") && should_download {
+            println!("cargo:warning=DirectML enabled on Windows. Falling back to source build instead of downloading prebuilt binaries.");
             should_download = false;
         }
 
@@ -507,10 +507,12 @@ fn main() {
         }
 
         // DirectML https://onnxruntime.ai/docs/execution-providers/DirectML-ExecutionProvider.html
-        if cfg!(feature = "directml") {
+        // Auto-enable on Windows (like CoreML on macOS), or when explicitly requested via feature
+        if cfg!(feature = "directml") || target_os == "windows" {
             debug_log!("DirectML enabled");
             config.define("SHERPA_ONNX_ENABLE_DIRECTML", "ON");
             config.define("BUILD_SHARED_LIBS", "ON");
+            is_dynamic = true;
         }
 
         if target_os == "windows" || target_os == "linux" || target == "android" {
