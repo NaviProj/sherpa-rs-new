@@ -1,6 +1,6 @@
 [package]
 name = "sherpa-rs"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 authors = ["thewh1teagle", "trevor"]
 license = "MIT"
@@ -136,6 +136,14 @@ path = "../../examples/transducer_vosk.rs"
 [[example]]
 name = "dolphin"
 path = "../../examples/dolphin.rs"
+
+[[example]]
+name = "fire_red_asr"
+path = "../../examples/fire_red_asr.rs"
+
+[[example]]
+name = "streaming_paraformer"
+path = "../../examples/streaming_paraformer.rs"
 
 [[example]]
 name = "parakeet"

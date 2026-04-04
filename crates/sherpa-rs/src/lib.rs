@@ -8,6 +8,7 @@ pub mod keyword_spot;
 pub mod language_id;
 pub mod moonshine;
 pub mod paraformer;
+pub mod streaming_paraformer;
 pub mod punctuate;
 pub mod sense_voice;
 pub mod silero_vad;
