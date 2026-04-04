@@ -310,8 +310,8 @@ fn main() {
     // Always refresh to keep bindings in sync with the header.
     debug_log!("Copy {} to {}", sherpa_src.display(), sherpa_dst.display());
     delete_folder(&sherpa_dst).unwrap();
-    delete_folder(&sherpa_src.join("scripts")).unwrap();
     copy_folder(&sherpa_src, &sherpa_dst);
+    delete_folder(&sherpa_dst.join("scripts")).unwrap();
     // Limit build parallelism to avoid overloading system
     env::set_var(
         "CMAKE_BUILD_PARALLEL_LEVEL",
