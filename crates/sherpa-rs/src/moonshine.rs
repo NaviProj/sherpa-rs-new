@@ -65,6 +65,7 @@ impl MoonshineRecognizer {
                     encoder: encoder_ptr.as_ptr(),
                     uncached_decoder: uncached_decoder_ptr.as_ptr(),
                     cached_decoder: cached_decoder_ptr.as_ptr(),
+                    merged_decoder: null(),
                 },
                 tokens: tokens_ptr.as_ptr(),
                 provider: provider_ptr.as_ptr(),
@@ -87,6 +88,9 @@ impl MoonshineRecognizer {
                 omnilingual: mem::zeroed::<_>(),
                 medasr: mem::zeroed::<_>(),
                 funasr_nano: mem::zeroed::<_>(),
+                fire_red_asr_ctc: mem::zeroed::<_>(),
+                qwen3_asr: mem::zeroed::<_>(),
+                cohere_transcribe: mem::zeroed::<_>(),
             }
         };
 

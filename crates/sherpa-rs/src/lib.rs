@@ -8,6 +8,7 @@ pub mod keyword_spot;
 pub mod language_id;
 pub mod moonshine;
 pub mod paraformer;
+pub mod qwen3_asr;
 pub mod streaming_paraformer;
 pub mod punctuate;
 pub mod sense_voice;

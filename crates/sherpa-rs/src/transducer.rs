@@ -97,6 +97,9 @@ impl TransducerRecognizer {
                 omnilingual: mem::zeroed::<_>(),
                 medasr: mem::zeroed::<_>(),
                 funasr_nano: mem::zeroed::<_>(),
+                fire_red_asr_ctc: mem::zeroed::<_>(),
+                qwen3_asr: mem::zeroed::<_>(),
+                cohere_transcribe: mem::zeroed::<_>(),
             };
 
             let recognizer_config = sherpa_rs_sys::SherpaOnnxOfflineRecognizerConfig {

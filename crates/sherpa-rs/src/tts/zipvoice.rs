@@ -61,6 +61,7 @@ impl ZipVoiceTts {
                     guidance_scale: config.guidance_scale,
                 },
                 pocket: mem::zeroed::<_>(),
+                supertonic: mem::zeroed::<_>(),
             };
             let config = sherpa_rs_sys::SherpaOnnxOfflineTtsConfig {
                 max_num_sentences: config.common_config.max_num_sentences,
