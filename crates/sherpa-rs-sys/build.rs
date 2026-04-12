@@ -3,6 +3,8 @@ use glob::glob;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
+use std::io::Read as _;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -237,6 +239,46 @@ fn verify_checksum(actual_hash: &str, expected_hash: &str) {
     }
 }
 
+#[cfg(feature = "download-binaries")]
+fn download_nuget_package(filename: &str, urls: &[&str]) -> Vec<u8> {
+    let agent = ureq::AgentBuilder::new()
+        .try_proxy_from_env(true)
+        .build();
+    let try_download = |url: &str| -> Result<Vec<u8>, String> {
+        debug_log!("Trying to download from {}", url);
+        let resp = agent
+            .get(url)
+            .timeout(std::time::Duration::from_secs(1800))
+            .call()
+            .map_err(|e| format!("Failed to GET `{url}`: {e}"))?;
+        let mut buf = Vec::new();
+        resp.into_reader()
+            .read_to_end(&mut buf)
+            .map_err(|e| format!("Failed to read response from `{url}`: {e}"))?;
+        Ok(buf)
+    };
+    let mut last_err = String::new();
+    for url in urls {
+        match try_download(url) {
+            Ok(data) => return data,
+            Err(e) => {
+                println!("cargo:warning=Download failed from {url}: {e}");
+                last_err = e;
+            }
+        }
+    }
+    panic!(
+        "Failed to download {filename} from all URLs.\n\
+         Last error: {last_err}\n\
+         \n\
+         You can manually download it and place it at one of these locations:\n\
+         - $HOME/Downloads/{filename}\n\
+         - <sherpa-onnx source dir>/{filename}\n\
+         \n\
+         Download URL: {}", urls[0]
+    );
+}
+
 fn main() {
     rerun_if_changed(&["wrapper.h", "dist.json", "checksum.txt", "./sherpa-onnx"]);
     rerun_on_env_changes(&[
@@ -384,10 +426,10 @@ fn main() {
             println!("cargo:warning=If your system does not meet these requirements, please enable the 'build-own' feature to build from source.");
         }
 
-        // DirectML still doesn't have its own prebuilt binary, so fallback to source build on Windows
-        // Auto-enabled on Windows (like CoreML on macOS), or when explicitly requested via feature
-        if (cfg!(feature = "directml") || target_os == "windows") && should_download {
-            println!("cargo:warning=DirectML enabled on Windows. Falling back to source build instead of downloading prebuilt binaries.");
+        // DirectML doesn't have prebuilt binaries on sherpa-onnx releases, so fallback to source build
+        #[cfg(feature = "directml")]
+        if should_download {
+            println!("cargo:warning=DirectML enabled. Falling back to source build instead of downloading prebuilt binaries.");
             should_download = false;
         }
 
@@ -507,12 +549,70 @@ fn main() {
         }
 
         // DirectML https://onnxruntime.ai/docs/execution-providers/DirectML-ExecutionProvider.html
-        // Auto-enable on Windows (like CoreML on macOS), or when explicitly requested via feature
-        if cfg!(feature = "directml") || target_os == "windows" {
+        if cfg!(feature = "directml") {
             debug_log!("DirectML enabled");
             config.define("SHERPA_ONNX_ENABLE_DIRECTML", "ON");
             config.define("BUILD_SHARED_LIBS", "ON");
             is_dynamic = true;
+
+            // Pre-download and extract NuGet packages, then set FETCHCONTENT_SOURCE_DIR_*
+            // to skip CMake FetchContent downloads (which often fail due to network issues).
+            #[cfg(feature = "download-binaries")]
+            {
+                let nuget_packages: &[(&str, &str, &[&str])] = &[
+                    (
+                        "microsoft.ml.onnxruntime.directml.1.14.1.nupkg",
+                        "ONNXRUNTIME",
+                        &[
+                            "https://hf-mirror.com/csukuangfj/sherpa-onnx-cmake-deps/resolve/main/microsoft.ml.onnxruntime.directml.1.14.1.nupkg",
+                            "https://huggingface.co/csukuangfj/sherpa-onnx-cmake-deps/resolve/main/microsoft.ml.onnxruntime.directml.1.14.1.nupkg",
+                            "https://globalcdn.nuget.org/packages/microsoft.ml.onnxruntime.directml.1.14.1.nupkg",
+                        ],
+                    ),
+                    (
+                        "Microsoft.AI.DirectML.1.15.0.nupkg",
+                        "DIRECTML",
+                        &[
+                            "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.0/microsoft.ai.directml.1.15.0.nupkg",
+                            "https://globalcdn.nuget.org/packages/microsoft.ai.directml.1.15.0.nupkg",
+                            "https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.0",
+                        ],
+                    ),
+                ];
+                for (filename, fetchcontent_name, urls) in nuget_packages {
+                    let extract_dir = out_dir.join(format!("nuget-{fetchcontent_name}"));
+                    if !extract_dir.exists() {
+                        debug_log!("Pre-downloading {} for DirectML build", filename);
+                        let data = download_nuget_package(filename, urls);
+                        let nupkg_path = out_dir.join(filename);
+                        fs::write(&nupkg_path, &data).unwrap_or_else(|e| {
+                            panic!("Failed to write {}: {}", nupkg_path.display(), e)
+                        });
+                        debug_log!("Saved {} ({} bytes)", nupkg_path.display(), data.len());
+                        // nupkg is a zip file, extract using PowerShell
+                        let zip_path = nupkg_path.with_extension("zip");
+                        fs::rename(&nupkg_path, &zip_path).unwrap();
+                        let status = Command::new("powershell")
+                            .args([
+                                "-NoProfile", "-Command",
+                                &format!(
+                                    "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
+                                    zip_path.display(), extract_dir.display()
+                                ),
+                            ])
+                            .status()
+                            .expect("Failed to run PowerShell for nupkg extraction");
+                        assert!(status.success(), "Failed to extract {filename}");
+                        let _ = fs::remove_file(&zip_path);
+                        debug_log!("Extracted {} to {}", filename, extract_dir.display());
+                    }
+                    // Tell CMake to use our pre-extracted directory
+                    config.define(
+                        format!("FETCHCONTENT_SOURCE_DIR_{fetchcontent_name}"),
+                        extract_dir.to_str().unwrap(),
+                    );
+                }
+            }
         }
 
         if target_os == "windows" || target_os == "linux" || target == "android" {

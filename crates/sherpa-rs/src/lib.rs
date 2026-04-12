@@ -37,7 +37,7 @@ pub fn get_default_provider() -> String {
         "cuda"
     } else if cfg!(target_os = "macos") {
         "coreml"
-    } else if cfg!(any(feature = "directml", target_os = "windows")) {
+    } else if cfg!(feature = "directml") {
         "directml"
     } else {
         "cpu"
