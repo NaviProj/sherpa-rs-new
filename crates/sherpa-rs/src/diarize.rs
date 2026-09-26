@@ -23,6 +23,8 @@ pub struct DiarizeConfig {
     pub min_duration_on: Option<f32>,
     pub min_duration_off: Option<f32>,
     pub provider: Option<String>,
+    /// Threads for each of the segmentation and embedding models.
+    pub num_threads: Option<i32>,
     pub debug: bool,
 }
 
@@ -34,6 +36,7 @@ impl Default for DiarizeConfig {
             min_duration_on: Some(0.0),
             min_duration_off: Some(0.0),
             provider: None,
+            num_threads: Some(1),
             debug: false,
         }
     }
@@ -47,6 +50,7 @@ impl Diarize {
     ) -> Result<Self> {
         let provider = config.provider.unwrap_or(get_default_provider());
 
+        let num_threads = config.num_threads.unwrap_or(1).max(1);
         let debug = config.debug;
         let debug = if debug { 1 } else { 0 };
 
@@ -65,7 +69,7 @@ impl Diarize {
         let config = sherpa_rs_sys::SherpaOnnxOfflineSpeakerDiarizationConfig {
             embedding: sherpa_rs_sys::SherpaOnnxSpeakerEmbeddingExtractorConfig {
                 model: embedding_model.as_ptr(),
-                num_threads: 1,
+                num_threads,
                 debug,
                 provider: provider.as_ptr(),
             },
@@ -76,7 +80,7 @@ impl Diarize {
                 pyannote: sherpa_rs_sys::SherpaOnnxOfflineSpeakerSegmentationPyannoteModelConfig {
                     model: segmentation_model.as_ptr(),
                 },
-                num_threads: 1,
+                num_threads,
                 debug,
                 provider: provider.as_ptr(),
             },
